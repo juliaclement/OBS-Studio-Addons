@@ -5,7 +5,8 @@ expires optionally switch scenes.
 Parameters:
 	Top Text	Text displayed above remaining time while counting down
 				Hidden once timer expires
-	Duration	Minutes to count down from
+	When		Text time (with optional date) to end countdown	
+	Duration	Minutes to count down from, not used if When used
 	Text Source	The text box to display Top Text & remaining time in
 	Final Text	Content of Text Source when timer expires
 	Switch to scene If set, OBS will switch to this scene when the 
@@ -31,7 +32,7 @@ choice any later version adopted by OBS Studio.
 obs           = obslua
 source_name   = ""
 total_seconds = 0
-
+when_to		  = ""
 cur_seconds   = 0
 last_text     = ""
 stop_text     = ""
@@ -41,13 +42,91 @@ activated     = false
 
 hotkey_id     = obs.OBS_INVALID_HOTKEY_ID
 
+-- Helper stuff
+
+function isInteger(str)
+  if str == nil or str == "" or str:find("%D") then return false end
+  return true
+end
+
+function isntInteger(str)
+  return not isInteger( str )
+end
+
+function integer_or_zero( str )
+	if str == nil or str == "" or str:find("%D") then return 0 else return tonumber(str) end
+end
+
+-- Function to set cur_seconds based on when_to with fallback to total_seconds
+-- when to is encoded [dd/mm[/yy] ]hh:mm[:ss] or +[hh:]mm:ss
+-- Target of several tests
+function decode_when_to( when_to, the_time )
+	if when_to == "" then
+		cur_seconds = total_seconds
+		return total_seconds
+	end
+	if the_time == nil then the_time = os.time() end
+	local hh = 0
+	local mi = 0
+	local ss = 0
+	local p ="(%d+):*(%d*):*(%d*)"
+	-- process +[hh:]mm[:ss] -> now()+hh:mm:ss
+	if when_to:sub(0,1) == "+" then
+		hh,mi,ss=when_to:match(p)
+		hh=integer_or_zero( hh)
+		if isntInteger(mi) then -- single digit = minutes not hours
+			mi = hh
+			hh = 0
+		end
+		ss=integer_or_zero(ss)
+		cur_seconds = hh*3600 + mi*60 + ss
+		total_seconds = cur_seconds
+		return the_time + cur_seconds
+	end
+	-- process date + time
+	local yy = 0
+	local mm = 0
+	local dd = 0
+	dd,mm,yy = when_to:match("(%d+)/(%d+)/*(%d*)")
+	local the_date = os.date( "*t", the_time )
+	if isInteger( mm ) then 
+		-- we have a date
+		yy = integer_or_zero( yy )
+		mm = integer_or_zero( mm )
+		dd = integer_or_zero( dd )
+		if dd > 0 then the_date.day = dd end
+		if mm > 0 then the_date.month = mm end
+		if yy > 2000 then
+			the_date.year = yy
+		else
+			if yy > 0 then
+				the_date.year = yy+2000
+			end
+		end
+		when_to = when_to:match( "%d+/%d+/*%d* *(%d+:*%d*:*%d*)")
+	end
+	
+	hh,mi,ss=when_to:match("(%d+):*(%d*):*(%d*)")
+	if isntInteger(mi) then -- single digit = minutes not hours
+		mi = hh
+		hh = nil
+	end
+	the_date.hour = integer_or_zero ( hh )
+	the_date.min = integer_or_zero ( mi )
+	the_date.sec = integer_or_zero ( ss )
+	new_time = os.time( the_date )
+	cur_seconds = new_time - the_time
+	total_seconds = cur_seconds
+	return new_time
+end
 -- Function to set the time text
-function set_time_text()
+function display_time()
 	local seconds       = math.floor(cur_seconds % 60)
 	local total_minutes = math.floor(cur_seconds / 60)
 	local minutes       = math.floor(total_minutes % 60)
-	local hours         = math.floor(total_minutes / 60)
-	local days			= math.floor( hours / 24 );
+	local total_hours   = math.floor(total_minutes / 60)
+	local hours			= math.floor(total_hours % 24)
+	local days			= math.floor( total_hours / 24 )
 	local text          = ""
 	if days > 0 then
 		text			=  string.format("%d days %02d:%02d:%02d", days, hours, minutes, seconds)
@@ -85,8 +164,6 @@ function find_source_by_name_in_list(source_list, name)
   return nil
 end
 
-
-
 function activate_scene(switch_scene_name)
   local scenes = obs.obs_frontend_get_scenes()
   local to_scene = find_source_by_name_in_list(scenes, switch_scene_name)
@@ -104,7 +181,7 @@ function timer_callback()
 		end
 	end
 
-	set_time_text()
+	display_time()
 end
 
 function activate(activating)
@@ -116,7 +193,7 @@ function activate(activating)
 
 	if activating then
 		cur_seconds = total_seconds
-		set_time_text()
+		display_time()
 		obs.timer_add(timer_callback, 1000)
 	else
 		obs.timer_remove(timer_callback)
@@ -169,7 +246,8 @@ function script_properties()
 	local props = obs.obs_properties_create()
 	obs.obs_properties_add_text(props, "top_text", "Top Text", obs.OBS_TEXT_DEFAULT)
 	obs.obs_properties_add_int(props, "duration", "Duration (minutes)", 1, 100000, 1)
-
+	local when_to_prop = obs.obs_properties_add_text(props, "when_to", "When to", obs.OBS_TEXT_DEFAULT)
+    obs.obs_property_set_long_description(when_to_prop, "Start date and time\n([dd/mm[/yy] ]hh:mm[:ss] or +[hh:]mm:ss)")
 	local p = obs.obs_properties_add_list(props, "source", "Text Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
 	local sources = obs.obs_enum_sources()
 	if sources ~= nil then
@@ -210,6 +288,8 @@ function script_update(settings)
 
 	top_text = obs.obs_data_get_string(settings, "top_text")
 	total_seconds = obs.obs_data_get_int(settings, "duration") * 60
+	when_to = obs.obs_data_get_string(settings, "when_to")
+	if when_to ~= "" then decode_when_to( when_to, os.time() ) end
 	source_name = obs.obs_data_get_string(settings, "source")
 	switch_scene  = obs.obs_data_get_string(settings,"scenechoice")
 	stop_text = obs.obs_data_get_string(settings, "stop_text")
@@ -219,7 +299,8 @@ end
 
 -- A function named script_defaults will be called to set the default settings
 function script_defaults(settings)
-	obs.obs_data_set_default_int(settings, "duration", 5)
+	obs.obs_data_set_default_int(settings, "duration", 0)
+	obs.obs_data_set_default_string(settings, "when_to", "+05:00")
 	obs.obs_data_set_default_string(settings, "top_text", "Show starts in")
 	obs.obs_data_set_default_string(settings, "stop_text", "Starting soon (tm)")
 end
