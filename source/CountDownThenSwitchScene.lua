@@ -6,7 +6,6 @@ Parameters:
 	Top Text	Text displayed above remaining time while counting down
 				Hidden once timer expires
 	When		Text time (with optional date) to end countdown	
-	Duration	Minutes to count down from, not used if When used
 	Text Source	The text box to display Top Text & remaining time in
 	Final Text	Content of Text Source when timer expires
 	Switch to scene If set, OBS will switch to this scene when the 
@@ -31,8 +30,8 @@ choice any later version adopted by OBS Studio.
 --]]
 obs           = obslua
 source_name   = ""
-total_seconds = 0
-when_to		  = ""
+when_to_default = "+00:05:00"
+when_to		  = when_to_default
 cur_seconds   = 0
 last_text     = ""
 stop_text     = ""
@@ -57,13 +56,12 @@ function integer_or_zero( str )
 	if str == nil or str == "" or str:find("%D") then return 0 else return tonumber(str) end
 end
 
--- Function to set cur_seconds based on when_to with fallback to total_seconds
+-- Function to set cur_seconds based on when_to with fallback to a default
 -- when to is encoded [dd/mm[/yy] ]hh:mm[:ss] or +[hh:]mm:ss
 -- Target of several tests
 function decode_when_to( when_to, the_time )
 	if when_to == "" then
-		cur_seconds = total_seconds
-		return total_seconds
+		when_to = when_to_default
 	end
 	if the_time == nil then the_time = os.time() end
 	local hh = 0
@@ -80,7 +78,6 @@ function decode_when_to( when_to, the_time )
 		end
 		ss=integer_or_zero(ss)
 		cur_seconds = hh*3600 + mi*60 + ss
-		total_seconds = cur_seconds
 		return the_time + cur_seconds
 	end
 	-- process date + time
@@ -116,7 +113,6 @@ function decode_when_to( when_to, the_time )
 	the_date.sec = integer_or_zero ( ss )
 	new_time = os.time( the_date )
 	cur_seconds = new_time - the_time
-	total_seconds = cur_seconds
 	return new_time
 end
 -- Function to set the time text
@@ -192,7 +188,7 @@ function activate(activating)
 	activated = activating
 
 	if activating then
-		cur_seconds = total_seconds
+		decode_when_to( when_to, os.time() )
 		display_time()
 		obs.timer_add(timer_callback, 1000)
 	else
@@ -245,7 +241,6 @@ end
 function script_properties()
 	local props = obs.obs_properties_create()
 	obs.obs_properties_add_text(props, "top_text", "Top Text", obs.OBS_TEXT_DEFAULT)
-	obs.obs_properties_add_int(props, "duration", "Duration (minutes)", 1, 100000, 1)
 	local when_to_prop = obs.obs_properties_add_text(props, "when_to", "When to", obs.OBS_TEXT_DEFAULT)
     obs.obs_property_set_long_description(when_to_prop, "Start date and time\n([dd/mm[/yy] ]hh:mm[:ss] or +[hh:]mm:ss)")
 	local p = obs.obs_properties_add_list(props, "source", "Text Source", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
@@ -279,7 +274,7 @@ end
 -- A function named script_description returns the description shown to
 -- the user
 function script_description()
-	return "Sets a text source to act as a countdown timer when the source is active.\n\nMade by Jim"
+	return "Sets a text source to act as a countdown timer when the source is active.\n\nMade by Jim, SiR & Julia Clement"
 end
 
 -- A function named script_update will be called when settings are changed
@@ -287,9 +282,8 @@ function script_update(settings)
 	activate(false)
 
 	top_text = obs.obs_data_get_string(settings, "top_text")
-	total_seconds = obs.obs_data_get_int(settings, "duration") * 60
 	when_to = obs.obs_data_get_string(settings, "when_to")
-	if when_to ~= "" then decode_when_to( when_to, os.time() ) end
+	decode_when_to( when_to, os.time() )
 	source_name = obs.obs_data_get_string(settings, "source")
 	switch_scene  = obs.obs_data_get_string(settings,"scenechoice")
 	stop_text = obs.obs_data_get_string(settings, "stop_text")
@@ -299,8 +293,7 @@ end
 
 -- A function named script_defaults will be called to set the default settings
 function script_defaults(settings)
-	obs.obs_data_set_default_int(settings, "duration", 0)
-	obs.obs_data_set_default_string(settings, "when_to", "+05:00")
+	obs.obs_data_set_default_string(settings, "when_to", when_to_default)
 	obs.obs_data_set_default_string(settings, "top_text", "Show starts in")
 	obs.obs_data_set_default_string(settings, "stop_text", "Starting soon (tm)")
 end

@@ -47,67 +47,56 @@ TestIntegers = {} --class
     
 TestDecodeWhenTo = {} --class
 
-    function TestDecodeWhenTo:test01_return_total_seconds_on_blank()
-    	total_seconds = 123
-    	luaunit.assertEquals( decode_when_to( "", 0 ), total_seconds )
+    function TestDecodeWhenTo:test01_return_plus_5_minutes_on_blank()
+    	luaunit.assertEquals( decode_when_to( "", 10000 ), 10300 )
     end
     
     function TestDecodeWhenTo:test02_return_now_on_0_0_0()
-    	total_seconds = 7;
-    	local start_time = os.time() -- 10000
+    	local start_time = os.time()
     	luaunit.assertEquals( decode_when_to( "+0:0:0", start_time ), start_time )
     end
     
     function TestDecodeWhenTo:test03_plus_m()
-    	total_seconds = 7;
     	local start_time = os.time();
     	luaunit.assertEquals( decode_when_to( "+1", start_time ), start_time + 60 )
     end
     
     function TestDecodeWhenTo:test04_plus_hm()
-    	total_seconds = 7;
     	local start_time = os.time();
     	luaunit.assertEquals( decode_when_to( "+1:2", start_time ), start_time + 3600 + 120 )
     end
     
     function TestDecodeWhenTo:test05_plus_hms()
-    	total_seconds = 7;
     	local start_time = os.time();
     	luaunit.assertEquals( decode_when_to( "+1:2:3", start_time ), start_time + 3600 + 120 + 3 )
     end
     
     function TestDecodeWhenTo:test06_hh_mm_ss()
-    	total_seconds = 7;
     	local start_time = os.time({year=2021, month=9, day=17, hour=0, min=0, sec=0});
     	luaunit.assertEquals( decode_when_to( "1:2:3", start_time ), start_time + 3600 + 120 + 3 )
     end
     
     function TestDecodeWhenTo:test07_hh_mm()
-    	total_seconds = 7;
     	local start_time = os.time({year=2021, month=9, day=17, hour=0, min=0, sec=0});
     	luaunit.assertEquals( decode_when_to( "2:4", start_time ), start_time + 7200 + 240 )
     end
     
     function TestDecodeWhenTo:test08_mm()
-    	total_seconds = 7;
     	local start_time = os.time({year=2021, month=9, day=17, hour=0, min=0, sec=0});
     	luaunit.assertEquals( decode_when_to( "3", start_time ), start_time + 180 )
     end
     
     function TestDecodeWhenTo:test09_dd_mm_hh_mm()
-    	total_seconds = 7;
     	local start_time = os.time({year=2021, month=9, day=17, hour=06, min=10, sec=1});
     	luaunit.assertEquals( os.date( "%Y/%m/%d %H:%M:%S", decode_when_to( "22/9 19:30", start_time )), "2021/09/22 19:30:00" )
     end
     
     function TestDecodeWhenTo:test10_dd_mm_yy_hh_mm_ss()
-    	total_seconds = 7;
     	local start_time = os.time({year=2021, month=9, day=17, hour=06, min=10, sec=1});
     	luaunit.assertEquals( os.date( "%Y/%m/%d %H:%M:%S", decode_when_to( "22/9/23 19:30:15", start_time )), "2023/09/22 19:30:15" )
     end
     
     function TestDecodeWhenTo:test11_dd_mm_yyyy_hh_mm_ss()
-    	total_seconds = 7;
     	local start_time = os.time({year=2021, month=9, day=17, hour=06, min=10, sec=1});
     	luaunit.assertEquals( os.date( "%Y/%m/%d %H:%M:%S", decode_when_to( "13/9/23 19:30:15", start_time )), "2023/09/13 19:30:15" )
     end
