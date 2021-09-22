@@ -100,9 +100,20 @@ function obsluaDummy.obs_property_t:set_default_string(val)
   if self.value=="" then 
     self.value = val
   end
-end	 
+end	
+
+function obsluaDummy.obs_property_t:set_default_int(val)
+  self.default_value = val
+  if self.value==nil or self.value=="" then 
+    self.value = val
+  end
+end	  
 
 function obsluaDummy.obs_property_t:get_string()
+  return self.value
+end	  
+
+function obsluaDummy.obs_property_t:get_int()
   return self.value
 end
 
@@ -113,6 +124,7 @@ obsluaDummy.obs_list_property_t.classname="obs_list_property_t"
 obsluaDummy.obs_list_property_t.set_long_description = obsluaDummy.obs_property_t.set_long_description
 obsluaDummy.obs_list_property_t.set_default_string = obsluaDummy.obs_property_t.set_default_string
 obsluaDummy.obs_list_property_t.get_string = obsluaDummy.obs_property_t.get_string
+obsluaDummy.obs_list_property_t.get_int = obsluaDummy.obs_property_t.get_int
 function obsluaDummy.obs_list_property_t:new( thename, thedescription, theproptype, theformat )
 	local o = {}
 	setmetatable(o, self)
@@ -133,6 +145,11 @@ obsluaDummy.obs_properties_t.__index=obsluaDummy.obs_properties_t
 obsluaDummy.obs_properties_t.classname="obs_properties_t"
 function obsluaDummy.obs_properties_t:add_text(name, description, proptype) 
 	local o = obsluaDummy.obs_property_t:new(name, description, proptype, nil)
+	self.props[name]= o
+	return o
+end
+function obsluaDummy.obs_properties_t:add_int(name, description, min, max, step) 
+	local o = obsluaDummy.obs_property_t:new(name, description, {mix, max, step}, nil)
 	self.props[name]= o
 	return o
 end
@@ -159,10 +176,27 @@ function obsluaDummy.obs_properties_t:set_default_string( name, val )
   end
 end  
 
+function obsluaDummy.obs_properties_t:set_default_int( name, val )
+  for propname,property in pairs(self.props) do
+    if propname == name then
+      property:set_default_int(val)
+      break
+    end
+  end
+end
+
 function obsluaDummy.obs_properties_t:get_string( name)
   for propname,property in pairs(self.props) do
     if propname == name then
       return property:get_string()
+    end
+  end
+end
+
+function obsluaDummy.obs_properties_t:get_int( name)
+  for propname,property in pairs(self.props) do
+    if propname == name then
+      return property:get_int()
     end
   end
 end
@@ -183,6 +217,10 @@ end
 
 function obsluaDummy.obs_properties_add_text( props, name, description, proptype )
 	return props:add_text( name, description, proptype )
+end	
+
+function obsluaDummy.obs_properties_add_int( props, name, description, min, max, inc )
+	return props:add_int( name, description, min, max, inc )
 end
 
 function obsluaDummy.obs_properties_add_list( props, name, description, proptype, propformat )
@@ -346,10 +384,18 @@ end
 -- Automation / hooks
 function obsluaDummy.obs_data_set_default_string(data, name, val)
   data:set_default_string( name, val )
+end
+
+function obsluaDummy.obs_data_set_default_int(data, name, val)
+  data:set_default_int( name, val )
 end 
 
 function obsluaDummy.obs_data_get_string(data, name)
   return data:get_string( name )
+end  
+
+function obsluaDummy.obs_data_get_int(data, name)
+  return data:get_int( name )
 end 
 
 function obsluaDummy.obs_data_get_array(data, name)

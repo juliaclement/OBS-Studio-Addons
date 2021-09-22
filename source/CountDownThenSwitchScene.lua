@@ -33,6 +33,7 @@ source_name   = ""
 when_to_default = "+00:05:00"
 when_to		  = when_to_default
 cur_seconds   = 0
+switch_at     = 0
 last_text     = ""
 stop_text     = ""
 top_text     = ""
@@ -173,12 +174,12 @@ end
 
 function timer_callback()
 	cur_seconds = cur_seconds - 1
+	if cur_seconds < switch_at and switch_scene ~= "" then
+		activate_scene( switch_scene )
+	end
 	if cur_seconds < 0 then
 		obs.remove_current_callback()
 		cur_seconds = 0
-		if switch_scene ~= "" then
-			activate_scene( switch_scene )
-		end
 	end
 
 	display_time()
@@ -258,6 +259,8 @@ function script_properties()
 
 	obs.obs_properties_add_text(props, "stop_text", "Final Text", obs.OBS_TEXT_DEFAULT)
     local scenedropdown = obs.obs_properties_add_list(props, "scenechoice", "Switch to scene", obs.OBS_COMBO_TYPE_EDITABLE, obs.OBS_COMBO_FORMAT_STRING)
+	local switch_at_prop = obs.obs_properties_add_int(props, "switch_at", "Switch at (Seconds)", 0, 100000, 1)
+    obs.obs_property_set_long_description(switch_at_prop, "Used to switch scenes before the timer reaches zero. Useful for playing a final countdown")
     
     local allScenes = obs.obs_frontend_get_scenes()
     for _, sceneSource in ipairs(allScenes) do
@@ -286,6 +289,7 @@ function script_update(settings)
 	decode_when_to( when_to, os.time() )
 	source_name = obs.obs_data_get_string(settings, "source")
 	switch_scene  = obs.obs_data_get_string(settings,"scenechoice")
+	switch_at = obs.obs_data_get_int(settings, "switch_at")
 	stop_text = obs.obs_data_get_string(settings, "stop_text")
 
 	reset(true)
@@ -295,6 +299,7 @@ end
 function script_defaults(settings)
 	obs.obs_data_set_default_string(settings, "when_to", when_to_default)
 	obs.obs_data_set_default_string(settings, "top_text", "Show starts in")
+	obs.obs_data_set_default_int(settings, "switch_at", 0)
 	obs.obs_data_set_default_string(settings, "stop_text", "Starting soon (tm)")
 end
 
