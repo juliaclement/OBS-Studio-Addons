@@ -197,6 +197,25 @@ TestFunctions = {}
       timer_callback()
       self:check_post_callback(0, "In Show", "Stop text")
     end
+    -- check timer callback switches on switch_at
+    -- TODO - bad design, split
+    function TestFunctions:test09_callback()
+      activate_scene("Before Show")
+      source_name = "Countdown"
+      stop_text = "Stop text"
+      local start_time = os.time()
+      decode_when_to( "+00:01:03", start_time )
+      switch_on = 60
+      timer_callback()
+      self:check_post_callback(62, "Before Show", "00:01:02")
+      timer_callback()
+      self:check_post_callback(61, "Before Show", "00:01:01")
+      timer_callback()
+      self:check_post_callback(60, "In Show", "00:01:00")
+      -- when timer goes to -1, the scene switch happens & timer is forced back to 0
+      timer_callback()
+      self:check_post_callback(59, "In Show", "00:00:59")
+    end
     
     function TestFunctions:test10_source_actived()
       activate_scene("Before Show")
